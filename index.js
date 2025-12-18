@@ -19,7 +19,7 @@ admin.initializeApp({
 
 const verifyToken = async (req, res, next) => {
   const token = req.headers.authorization;
-  // comment
+
   if (!token) {
     return res.status(401).send({ message: "unauthorize access" });
   }
