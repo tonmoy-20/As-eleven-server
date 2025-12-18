@@ -24,10 +24,11 @@ const verifyToken = async (req, res, next) => {
     return res.status(401).send({ message: "unauthorize access" });
   }
   try {
-    const idToken = token.split("")[1];
+    const idToken = token.split(" ")[1];
     const decoded = await admin.auth().verifyIdToken(idToken);
     console.log("decoded info", decoded);
     req.decoded_email = decoded.email;
+    next();
   } catch (error) {
     return res.status(401).send({ message: "unauthorize access" });
   }
@@ -65,11 +66,28 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/users", verifyToken, async (req, res) => {
+      const result = await userCollections.find().toArray();
+      res.status(200).send(result);
+    });
+
     app.get(`/users/role/:email`, async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
       const result = await userCollections.findOne(query);
       console.log(result);
+      res.send(result);
+    });
+
+    app.patch("/update/user/status", verifyToken, async (req, res) => {
+      const { email, status } = req.query;
+      const query = { email: email };
+      const updateStatus = {
+        $set: {
+          status: status,
+        },
+      };
+      const result = await userCollections.updateOne(query, updateStatus);
       res.send(result);
     });
 
