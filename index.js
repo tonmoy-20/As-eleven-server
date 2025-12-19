@@ -54,7 +54,6 @@ async function run() {
 
     const dataBase = client.db("missionscic11DB");
     const userCollections = dataBase.collection("user");
-    const ProductCollections = dataBase.collection("product");
     const requestCollections = dataBase.collection("request");
 
     app.post("/users", async (req, res) => {
@@ -100,11 +99,11 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/manager/products/:email", async (req, res) => {
-      const email = req.params.email;
-      const query = { managerEmail: email };
+    app.get("/my-request", verifyToken, async (req, res) => {
+      const email = req.decoded_email;
+      const query = { requester_email: email };
 
-      const result = await ProductCollections.find(query).toArray();
+      const result = await requestCollections.find(query).toArray();
       res.send(result);
     });
 
