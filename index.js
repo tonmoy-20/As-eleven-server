@@ -11,6 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 const admin = require("firebase-admin");
+const { log } = require("console");
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
   "utf8"
 );
@@ -57,6 +58,7 @@ async function run() {
     const dataBase = client.db("missionscic11DB");
     const userCollections = dataBase.collection("user");
     const requestCollections = dataBase.collection("request");
+    const paymentsCollections = dataBase.collection("payments");
 
     app.post("/users", async (req, res) => {
       const userInfo = req.body;
@@ -145,6 +147,39 @@ async function run() {
         cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled`,
       });
       res.send({ url: session.url });
+    });
+
+    //new
+    app.post("/success-payment", async (req, res) => {
+      const { session_id } = req.query;
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      console.log(session);
+
+      const transactionId = session.payment_intent;
+
+      const isPaymentExist = await paymentsCollections.findOne({
+        transactionId,
+      });
+      if (isPaymentExist) {
+        console.log("Tonmoyyyyy");
+
+        return res.status(400).send("Already Exist");
+      }
+
+      console.log("after verify");
+
+      if (session.payment_status == "paid") {
+        const paymentInfo = {
+          amount: session.amount_total / 100,
+          currency: session.currency,
+          donorEmail: session.customer_email,
+          transactionId,
+          payment_status: session.payment_status,
+          paidAt: new Date(),
+        };
+        const result = await paymentsCollections.insertOne(paymentInfo);
+        return res.send(result);
+      }
     });
 
     await client.db("admin").command({ ping: 1 });
