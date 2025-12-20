@@ -124,19 +124,13 @@ async function run() {
       const query = {};
       if (!query) {
         return;
-      }
-      if (bloodGroup) {
-        query.bloodGroup = bloodGroup;
-      }
-      if (district) {
+
         query.requester_district = district;
       }
       if (upazila) {
         query.requester_upazila = upazila;
       }
-
       const result = await requestCollections.find(query).toArray();
-
       res.send(result);
     });
 
