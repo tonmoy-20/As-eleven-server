@@ -119,6 +119,27 @@ async function run() {
       res.send({ request: result, totalRequest });
     });
 
+    app.get("/requests-search", async (req, res) => {
+      const { bloodGroup, district, upazila } = req.query;
+      const query = {};
+      if (!query) {
+        return;
+      }
+      if (bloodGroup) {
+        query.bloodGroup = bloodGroup;
+      }
+      if (district) {
+        query.requester_district = district;
+      }
+      if (upazila) {
+        query.requester_upazila = upazila;
+      }
+
+      const result = await requestCollections.find(query).toArray();
+
+      res.send(result);
+    });
+
     //payments
 
     app.post("/create-payment-checkout", async (req, res) => {
