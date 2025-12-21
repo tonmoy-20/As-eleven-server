@@ -94,6 +94,23 @@ async function run() {
       res.send(result);
     });
 
+    // doner search
+    app.get("/users-search", async (req, res) => {
+      const { bloodGroup, district, upazila } = req.query;
+      const query = {};
+
+      if (bloodGroup) query.bloodGroup = bloodGroup;
+      if (district) query.district = district;
+      if (upazila) query.upazila = upazila;
+
+      try {
+        const result = await usersCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Error fetching donors" });
+      }
+    });
+
     // request
 
     app.post("/requests", verifyToken, async (req, res) => {
@@ -119,22 +136,43 @@ async function run() {
       res.send({ request: result, totalRequest });
     });
 
+    // app.get("/requests-search", async (req, res) => {
+    //   const { bloodGroup, district, upazila } = req.query;
+    //   const query = {};
+    //   if (!query) {
+    //     return;
+
+    //     query.requester_district = district;
+    //   }
+
+    //   if (upazila) {
+    //     query.requester_upazila = upazila;
+    //   }
+    //   const result = await requestCollections.find(query).toArray();
+    //   res.send(result);
+    // });
+
     app.get("/requests-search", async (req, res) => {
       const { bloodGroup, district, upazila } = req.query;
       const query = {};
-      if (!query) {
-        return;
 
+      if (bloodGroup) {
+        query.bloodGroup = bloodGroup;
+      }
+      if (district) {
         query.requester_district = district;
       }
       if (upazila) {
         query.requester_upazila = upazila;
       }
-      const result = await requestCollections.find(query).toArray();
-      res.send(result);
-    });
 
-    //payments
+      try {
+        const result = await requestCollections.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Error searching data" });
+      }
+    });
 
     app.post("/create-payment-checkout", async (req, res) => {
       const information = req.body;
@@ -176,12 +214,8 @@ async function run() {
         transactionId,
       });
       if (isPaymentExist) {
-        console.log("Tonmoyyyyy");
-
         return res.status(400).send("Already Exist");
       }
-
-      console.log("after verify");
 
       if (session.payment_status == "paid") {
         const paymentInfo = {
@@ -189,11 +223,35 @@ async function run() {
           currency: session.currency,
           donorEmail: session.customer_email,
           transactionId,
+          donorName: session.metadata?.donorName || "unknown user",
           payment_status: session.payment_status,
           paidAt: new Date(),
         };
         const result = await paymentsCollections.insertOne(paymentInfo);
         return res.send(result);
+      }
+    });
+
+    app.get("/all-payments", verifyToken, async (req, res) => {
+      try {
+        const size = parseInt(req.query.size) || 3;
+        const page = parseInt(req.query.page) || 0;
+
+        const query = {};
+        const result = await paymentsCollections
+          .find(query)
+          .skip(page * size)
+          .limit(size)
+          .toArray();
+
+        const totalRequest = await paymentsCollections.countDocuments(query);
+
+        res.send({
+          request: result,
+          totalRequest,
+        });
+      } catch (error) {
+        res.status(500).send({ message: "Error fetching payments" });
       }
     });
 
