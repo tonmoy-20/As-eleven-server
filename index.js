@@ -94,6 +94,68 @@ async function run() {
       res.send(result);
     });
 
+    // update role
+
+    app.patch("/update/user/role", verifyToken, async (req, res) => {
+      const { email, role } = req.query;
+      const query = { email: email };
+      const updateRole = {
+        $set: {
+          role: role,
+        },
+      };
+      try {
+        const result = await userCollections.updateOne(query, updateRole);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to update role" });
+      }
+    });
+
+    app.get("/admin-stats", verifyToken, async (req, res) => {
+      const users = await userCollections.countDocuments({ role: "donor" });
+      const requests = await requestCollections.countDocuments();
+
+      //  (payments collection)
+      const payments = await paymentsCollections
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              totalFunding: { $sum: "$amount" },
+            },
+          },
+        ])
+        .toArray();
+
+      const funding = payments.length > 0 ? payments[0].totalFunding : 0;
+
+      res.send({
+        totalDonors: users,
+        totalRequests: requests,
+        totalFunding: funding,
+      });
+    });
+
+    // recent req
+
+    app.get("/my-recent-requests", verifyToken, async (req, res) => {
+      const email = req.decoded_email;
+      const query = { requester_email: email };
+      const result = await requestCollections.find(query).sort({ _id: -1 });
+      res.send(result);
+    });
+
+    //  (Done/Canceled)
+    app.patch("/requests/status/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const status = req.query.status;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = { $set: { status: status } };
+      const result = await requestCollections.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
     // doner search
     app.get("/users-search", async (req, res) => {
       const { bloodGroup, district, upazila } = req.query;
@@ -118,6 +180,15 @@ async function run() {
       data.createdAt = new Date();
       const result = await requestCollections.insertOne(data);
       res.send(result);
+    });
+
+    app.get("/requests", async (req, res) => {
+      try {
+        const result = await requestCollections.find().toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Data fetch failed" });
+      }
     });
 
     app.get("/my-request", verifyToken, async (req, res) => {
@@ -252,6 +323,38 @@ async function run() {
         });
       } catch (error) {
         res.status(500).send({ message: "Error fetching payments" });
+      }
+    });
+
+    // Profile Update
+    app.patch("/users-update/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const userInfo = req.body;
+        const query = { email: email };
+
+        const updatedDoc = {
+          $set: {
+            name: userInfo.name,
+            mainUrl: userInfo.image,
+            bloodGroup: userInfo.bloodGroup,
+            district: userInfo.district,
+            upozila: userInfo.upozila,
+          },
+        };
+
+        console.log("Updating User:", email, userInfo);
+
+        const result = await userCollections.updateOne(query, updatedDoc);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        console.error("Update Error:", error);
+        res.status(500).send({ message: "Internal Server Error" });
       }
     });
 
