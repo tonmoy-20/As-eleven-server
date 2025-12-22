@@ -1,4 +1,5 @@
 const { MongoClient, ServerApiVersion } = require("mongodb");
+
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
@@ -52,7 +53,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
 
     const dataBase = client.db("missionscic11DB");
@@ -72,6 +73,35 @@ async function run() {
     app.get("/users", verifyToken, async (req, res) => {
       const result = await userCollections.find().toArray();
       res.status(200).send(result);
+    });
+
+    //user search
+    app.get("/users-search", async (req, res) => {
+      const { bloodGroup, district, upazila } = req.query;
+
+      console.log("Query params:", req.query);
+
+      const query = {};
+
+      if (bloodGroup) {
+        query.BloodGroup = bloodGroup;
+      }
+
+      if (district) {
+        query.district = district;
+      }
+
+      if (upazila) {
+        query.upozila = upazila;
+      }
+
+      console.log("Mongo query:", query);
+
+      const result = await userCollections.find(query).toArray();
+
+      console.log("Matched users:", result.length);
+
+      res.send(result);
     });
 
     app.get(`/users/role/:email`, async (req, res) => {
@@ -166,7 +196,7 @@ async function run() {
       if (upazila) query.upazila = upazila;
 
       try {
-        const result = await usersCollection.find(query).toArray();
+        const result = await usersCollections.find(query).toArray();
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: "Error fetching donors" });
@@ -191,19 +221,43 @@ async function run() {
       }
     });
 
+    //single req api
+    const { ObjectId } = require("mongodb");
+
+    app.get("/requests/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await requestCollections.findOne(query);
+
+        if (!result) {
+          return res.status(404).send({ message: "Request not found" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch request" });
+      }
+    });
+
     app.get("/my-request", verifyToken, async (req, res) => {
       const email = req.decoded_email;
       const size = Number(req.query.size);
       const page = Number(req.query.page);
+      const filter = req.query.filter;
+
       const query = { requester_email: email };
+      if (filter) {
+        query.status = filter;
+      }
 
       const result = await requestCollections
         .find(query)
         .limit(size)
         .skip(size * page)
         .toArray();
-      const totalRequest = await requestCollections.countDocuments(query);
 
+      const totalRequest = await requestCollections.countDocuments(query);
       res.send({ request: result, totalRequest });
     });
 
@@ -358,7 +412,7 @@ async function run() {
       }
     });
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
